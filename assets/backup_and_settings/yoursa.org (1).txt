@@ -1,4 +1,4 @@
-; Domain: yoursa.org
+; Domain: coworker365.com
 ; Exported (y-m-d hh:mm:ss): 2025-12-05 20:07:01
 ;
 ; This file is intended for use for informational and archival
@@ -26,7 +26,7 @@
 ; Use at your own risk.
 
 
-$ORIGIN yoursa.org.
+$ORIGIN coworker365.com.
 
 ; SOA Record
 @	3600	 IN 	SOA	ns67.domaincontrol.com.	dns.jomax.net. (
