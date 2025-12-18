@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrolling Text Component</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        scrolling-text {
+            display: block;
+            overflow: hidden;
+            white-space: nowrap;
+            background: #f5f5f5;
+            padding: 15px 0;
+        }
+
+        scrolling-text > div {
+            display: inline-block;
+        }
+
+        .text-size--larger {
+            font-size: 1.1rem;
+        }
+
+        .element--horizontal-space--regular-x-2 {
+            padding: 0 2rem;
+        }
+
+        /* Demo styling */
+        .demo-container {
+            margin: 20px 0;
+        }
+
+        .demo-label {
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Scrolling Text Component</h1>
+
+    <div class="demo-container">
+        <div class="demo-label">Example 1: Shipping Notice (LTR, 60px/s)</div>
+        <scrolling-text 
+            class="scrolling-text text-size--larger" 
+            data-scrolling-speed="60" 
+            data-scrolling-direction="ltr" 
+            data-pause-on-hover="true">
+            <div>
+                <span class="element--horizontal-space--regular-x-2">
+                    <strong>Monday 15th</strong> is the last shipping day of 2025. 
+                    Orders placed after this date will ship <strong>in early January</strong>.
+                </span>
+            </div>
+        </scrolling-text>
+    </div>
+
+    <div class="demo-container">
+        <div class="demo-label">Example 2: RTL Direction (slower)</div>
+        <scrolling-text 
+            class="scrolling-text" 
+            data-scrolling-speed="40" 
+            data-scrolling-direction="rtl" 
+            data-pause-on-hover="false">
+            <div>
+                <span class="element--horizontal-space--regular-x-2">
+                    ⭐ New arrivals every week • Free shipping over $50 • Limited time offers
+                </span>
+            </div>
+        </scrolling-text>
+    </div>
+
+    <div class="demo-container">
+        <div class="demo-label">Example 3: Fast Scroll with Hover Pause</div>
+        <scrolling-text 
+            class="scrolling-text" 
+            data-scrolling-speed="100" 
+            data-scrolling-direction="ltr" 
+            data-pause-on-hover="true">
+            <div>
+                <span class="element--horizontal-space--regular-x-2">
+                    🎉 Flash Sale! 50% OFF Everything • Use Code: FLASH50 • Ends Tonight!
+                </span>
+            </div>
+        </scrolling-text>
+    </div>
+
+    <script>
+        if (typeof ScrollingText !== "function") {
+            class ScrollingText extends HTMLElement {
+                constructor() {
+                    super();
+                    
+                    // Get dimensions helper
+                    const getWidth = (element) => {
+                        const rect = element.getBoundingClientRect();
+                        return rect.right - rect.left;
+                    };
+
+                    // Main scrolling controller
+                    class ScrollingController {
+                        constructor(box, speed) {
+                            const innerElement = box.children?.[0];
+                            if (!innerElement) throw new Error("No child node found");
+                            
+                            innerElement.style.position = "relative";
+                            this.position = 0;
+                            this.speed = speed;
+                            this.box = box;
+                            this.innerElement = innerElement.cloneNode(true);
+                            this.boxWidth = 0;
+                            this.innerElementWidth = 0;
+                            this._running = false;
+                            
+                            this.refreshWidths();
+                            this.setupChildren();
+                        }
+
+                        refreshWidths() {
+                            this.boxWidth = getWidth(this.box);
+                            this.innerElementWidth = getWidth(this.box.children[0]);
+                        }
+
+                        calculateNumElements() {
+                            return Math.ceil(this.boxWidth / this.innerElementWidth) + 1;
+                        }
+
+                        setupChildren() {
+                            const qty = this.calculateNumElements();
+                            const currentChildren = this.box.children.length;
+
+                            if (qty > currentChildren) {
+                                for (let i = currentChildren; i < qty; i++) {
+                                    this.box.appendChild(this.innerElement.cloneNode(true));
+                                }
+                            } else if (qty < currentChildren) {
+                                for (let i = qty; i < currentChildren; i++) {
+                                    this.box.removeChild(this.box.lastChild);
+                                }
+                            }
+                        }
+
+                        nextFrame(delta, direction) {
+                            this.refreshWidths();
+                            this.setupChildren();
+
+                            Array.from(this.box.children).forEach(el => {
+                                const translateValue = direction === "rtl" ? this.position : -this.position;
+                                el.style.transform = `translateX(${translateValue}px)`;
+                            });
+
+                            this.position += (this.speed * delta) / 1000;
+                            
+                            if (this.position >= this.innerElementWidth) {
+                                this.position = this.position % this.innerElementWidth;
+                            }
+                        }
+
+                        start(direction) {
+                            this._running = true;
+                            let lastTime = null;
+
+                            const loop = () => {
+                                if (!this._running) return;
+
+                                const now = Date.now();
+                                const delta = lastTime === null ? 0 : now - lastTime;
+                                this.nextFrame(delta, direction);
+                                lastTime = now;
+                                window.requestAnimationFrame(loop);
+                            };
+
+                            window.requestAnimationFrame(loop);
+                        }
+
+                        stop() {
+                            this._running = false;
+                        }
+                    }
+
+                    // Initialize
+                    const speed = window.innerWidth > 768 
+                        ? parseInt(this.dataset.scrollingSpeed) 
+                        : parseInt(this.dataset.scrollingSpeed) / 1.5;
+                    
+                    const direction = this.dataset.scrollingDirection || "ltr";
+                    const scrollingText = new ScrollingController(this, speed);
+
+                    // Pause on hover functionality
+                    if (this.dataset.pauseOnHover === "true") {
+                        let windowInFocus = true;
+
+                        const handleMouseOver = () => {
+                            if (windowInFocus) scrollingText.stop();
+                        };
+
+                        const handleMouseOut = () => {
+                            if (windowInFocus) scrollingText.start(direction);
+                        };
+
+                        window.addEventListener("blur", () => windowInFocus = false);
+                        window.addEventListener("focus", () => windowInFocus = true);
+                        this.addEventListener("mouseover", handleMouseOver);
+                        this.addEventListener("mouseout", handleMouseOut);
+                    }
+
+                    // Start/stop based on visibility
+                    new IntersectionObserver(entries => {
+                        if (entries[0].isIntersecting) {
+                            scrollingText.start(direction);
+                        } else {
+                            scrollingText.stop();
+                        }
+                    }).observe(this);
+                }
+            }
+
+            if (typeof customElements.get("scrolling-text") === "undefined") {
+                customElements.define("scrolling-text", ScrollingText);
+            }
+        }
+    </script>
+</body>
+</html>
